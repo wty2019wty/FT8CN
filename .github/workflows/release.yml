@@ -1,0 +1,73 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v**'
+
+env:
+  TAG_NAME: ${{ github.ref_name }}
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK Components
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Assemble Artifacts
+        working-directory: ft8cn
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease
+
+      - name: Sign APK
+        working-directory: ft8cn
+        run: |
+          echo "${{ secrets.KEY_STORE }}" | base64 -d > keystore.jks
+          APK=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          BUILD_TOOLS=$(ls -d ${ANDROID_HOME}/build-tools/*/ | sort -V | tail -1)
+          ${BUILD_TOOLS}apksigner sign \
+            --ks keystore.jks \
+            --ks-pass pass:${{ secrets.KEY_STORE_PASSWORD }} \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --out app/build/outputs/apk/release/ft8cn-$TAG_NAME.apk \
+            "$APK"
+          rm keystore.jks
+
+      - name: Sign Bundle
+        working-directory: ft8cn
+        run: |
+          echo "${{ secrets.KEY_STORE }}" | base64 -d > keystore.jks
+          AAB=$(find app/build/outputs/bundle/release -name "*.aab" | head -1)
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore keystore.jks \
+            -storepass ${{ secrets.KEY_STORE_PASSWORD }} \
+            -keypass ${{ secrets.KEY_PASSWORD }} \
+            "$AAB" ${{ secrets.KEY_ALIAS }}
+          rm keystore.jks
+
+      - name: Create Release
+        working-directory: ft8cn
+        run: |
+          gh release create $TAG_NAME --title=$TAG_NAME --generate-notes
+          gh release upload $TAG_NAME app/build/outputs/apk/release/ft8cn-$TAG_NAME.apk

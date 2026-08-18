@@ -19,6 +19,8 @@ import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.util.Log;
 
+import androidx.core.content.ContextCompat;
+
 import com.bg7yoz.ft8cn.BuildConfig;
 import com.bg7yoz.ft8cn.GeneralVariables;
 import com.bg7yoz.ft8cn.R;
@@ -147,12 +149,13 @@ public class CableSerialPort {
             PendingIntent usbPermissionIntent;
 
             //在android12 开始，增加了PendingIntent.FLAG_MUTABLE保护机制，所以要做版本判断
+            Intent grantIntent = new Intent(INTENT_ACTION_GRANT_USB).setPackage(context.getPackageName());
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 usbPermissionIntent = PendingIntent.getBroadcast(context, 0
-                        , new Intent(INTENT_ACTION_GRANT_USB), PendingIntent.FLAG_MUTABLE);
+                        , grantIntent, PendingIntent.FLAG_MUTABLE);
             } else {
                 usbPermissionIntent = PendingIntent.getBroadcast(context, 0
-                        , new Intent(INTENT_ACTION_GRANT_USB), 0);
+                        , grantIntent, PendingIntent.FLAG_IMMUTABLE);
             }
 
 
@@ -256,7 +259,8 @@ public class CableSerialPort {
 
     public void registerRigSerialPort(Context context) {
         Log.d(TAG, "registerRigSerialPort: registered!");
-        context.registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
+        ContextCompat.registerReceiver(context, broadcastReceiver
+                , new IntentFilter(INTENT_ACTION_GRANT_USB), ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
     public void unregisterRigSerialPort(Activity activity) {

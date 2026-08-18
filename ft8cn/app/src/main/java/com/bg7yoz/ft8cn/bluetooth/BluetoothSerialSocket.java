@@ -14,6 +14,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 
+import androidx.core.content.ContextCompat;
+
 import java.io.IOException;
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -57,7 +59,8 @@ public class BluetoothSerialSocket implements Runnable {
      */
     void connect(BluetoothSerialListener listener) throws IOException {
         this.listener = listener;
-        context.registerReceiver(disconnectBroadcastReceiver, new IntentFilter(BluetoothConstants.INTENT_ACTION_DISCONNECT));
+        ContextCompat.registerReceiver(context, disconnectBroadcastReceiver
+                , new IntentFilter(BluetoothConstants.INTENT_ACTION_DISCONNECT), ContextCompat.RECEIVER_NOT_EXPORTED);
         Executors.newCachedThreadPool().submit(this);
     }
 

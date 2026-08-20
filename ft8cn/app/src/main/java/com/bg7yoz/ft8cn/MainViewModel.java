@@ -955,6 +955,15 @@ public class MainViewModel extends ViewModel {
 
 
     /**
+     * 重新启动麦克风录音。用于权限授权后恢复录音（首次启动时录音可能因权限未授予而失败）。
+     */
+    public void restartMicRecord() {
+        if (hamRecorder != null) {
+            hamRecorder.setDataFromMic();
+        }
+    }
+
+    /**
      * 检察电台是否处于连接状态,两种情况：rigBaseClass没建立，串口没连接成功
      *
      * @return 是否连接

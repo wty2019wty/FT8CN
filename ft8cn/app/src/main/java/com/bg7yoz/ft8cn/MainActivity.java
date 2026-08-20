@@ -582,12 +582,24 @@ public class MainActivity extends AppCompatActivity {
     /**
      * 响应授权
      * 这里不管用户是否拒绝，都进入首页，不再重复申请权限
+     * 若用户授予了录音权限，则重新启动录音（首次启动时录音会因权限未授予而失败）
      */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != PERMISSION_REQUEST) {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST) {
+            boolean micGranted = false;
+            for (int i = 0; i < permissions.length; i++) {
+                if (Manifest.permission.RECORD_AUDIO.equals(permissions[i])
+                        && grantResults.length > i
+                        && grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                    micGranted = true;
+                }
+            }
+            if (micGranted && mainViewModel != null && mainViewModel.hamRecorder != null) {
+                //授权后重新启动麦克风录音
+                mainViewModel.restartMicRecord();
+            }
         }
     }
 

@@ -131,6 +131,7 @@ public class MicRecorder {
     /**
      * 使用多种方式创建 AudioRecord：经典构造 → Builder+Context → 反射绕过厂商构造逻辑。
      */
+    @SuppressLint("MissingPermission")
     private AudioRecord createByAllWays(Context context, int source, int encoding) {
         //方式一：经典构造函数
         AudioRecord rec = null;

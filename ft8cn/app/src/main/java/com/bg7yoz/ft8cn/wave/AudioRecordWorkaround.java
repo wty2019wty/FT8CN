@@ -124,6 +124,13 @@ public class AudioRecordWorkaround {
             // int[] sampleRate, int channelMask, int channelIndexMask, int audioFormat,
             // int buffSizeInBytes, int[] sessionId, String opPackageName,
             // long nativeRecordInJavaObj);
+            String opPackageName;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {//API 29起才有getOpPackageName
+                opPackageName = context.getOpPackageName();
+            } else {
+                //API 23-28 没有 getOpPackageName，用包名代替
+                opPackageName = context.getPackageName();
+            }
             Method nativeSetupMethod = AudioRecord.class.getDeclaredMethod("native_setup",
                     Object.class, Object.class, int[].class, int.class, int.class,
                     int.class, int.class, int[].class, String.class, long.class);
@@ -132,7 +139,7 @@ public class AudioRecordWorkaround {
                     , new WeakReference<>(audioRecord), attributes
                     , sampleRateArray, channelMask(channelConfig), channelIndexMask
                     , audioRecord.getAudioFormat(), bufferSizeInBytes, session
-                    , context.getOpPackageName(), 0L);
+                    , opPackageName, 0L);
         } else {
             // Android 12 (API 31) 及以上：native_setup 使用 AttributionSource 的 Parcel
             AttributionSource attributionSource = context.getAttributionSource();

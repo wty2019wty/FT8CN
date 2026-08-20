@@ -36,6 +36,7 @@ import android.view.WindowManager;
 import android.view.animation.AnimationUtils;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -206,6 +207,35 @@ public class MainActivity extends AppCompatActivity {
         navController = navHostFragment.getNavController();
 
         NavigationUI.setupWithNavController(binding.navView, navController);
+
+        //处理返回按键（迁移到OnBackPressedDispatcher，兼容Android 16的预测性返回手势）
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (navController.getGraph().getStartDestination() == navController.getCurrentDestination().getId()) {//说明是到最后一个页面了
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setMessage(getString(R.string.exit_confirmation))
+                            .setPositiveButton(getString(R.string.exit)
+                                    , new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialogInterface, int i) {
+                                            if (mainViewModel.ft8TransmitSignal.isActivated()) {
+                                                mainViewModel.ft8TransmitSignal.setActivated(false);
+                                            }
+                                            closeThisApp();//退出APP
+                                        }
+                                    }).setNegativeButton(getString(R.string.cancel)
+                                    , new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialogInterface, int i) {
+                                            dialogInterface.dismiss();
+                                        }
+                                    }).create().show();
+                } else {//退出activity堆栈
+                    navController.navigateUp();
+                }
+            }
+        });
         //此处增加回调是因为当APP主动navigation后，无法回到解码的界面
         binding.navView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
             @Override
@@ -552,12 +582,24 @@ public class MainActivity extends AppCompatActivity {
     /**
      * 响应授权
      * 这里不管用户是否拒绝，都进入首页，不再重复申请权限
+     * 若用户授予了录音权限，则重新启动录音（首次启动时录音会因权限未授予而失败）
      */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != PERMISSION_REQUEST) {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST) {
+            boolean micGranted = false;
+            for (int i = 0; i < permissions.length; i++) {
+                if (Manifest.permission.RECORD_AUDIO.equals(permissions[i])
+                        && grantResults.length > i
+                        && grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                    micGranted = true;
+                }
+            }
+            if (micGranted && mainViewModel != null && mainViewModel.hamRecorder != null) {
+                //授权后重新启动麦克风录音
+                mainViewModel.restartMicRecord();
+            }
         }
     }
 
@@ -669,35 +711,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    @Override
-    public void onBackPressed() {
-        if (navController.getGraph().getStartDestination() == navController.getCurrentDestination().getId()) {//说明是到最后一个页面了
-            AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                    .setMessage(getString(R.string.exit_confirmation))
-                    .setPositiveButton(getString(R.string.exit)
-                            , new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialogInterface, int i) {
-                                    if (mainViewModel.ft8TransmitSignal.isActivated()) {
-                                        mainViewModel.ft8TransmitSignal.setActivated(false);
-                                    }
-                                    closeThisApp();//退出APP
-                                }
-                            }).setNegativeButton(getString(R.string.cancel)
-                            , new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialogInterface, int i) {
-                                    dialogInterface.dismiss();
-                                }
-                            });
-            builder.create().show();
-
-        } else {//退出activity堆栈
-            navController.navigateUp();
-            //setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
-        }
-    }
-
     private void closeThisApp() {
         mainViewModel.ft8TransmitSignal.setActivated(false);
         if (mainViewModel.baseRig != null) {
@@ -732,7 +745,7 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(BluetoothAdapter.EXTRA_STATE);
         intentFilter.addAction("android.bluetooth.BluetoothAdapter.STATE_OFF");
         intentFilter.addAction("android.bluetooth.BluetoothAdapter.STATE_ON");
-        registerReceiver(mReceive, intentFilter);
+        ContextCompat.registerReceiver(this, mReceive, intentFilter, ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
     /**

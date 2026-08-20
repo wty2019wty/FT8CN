@@ -15,18 +15,22 @@ static def getCurrentTime() {
 
 android {
 
-    compileSdk 33
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.bg7yoz.ft8cn"
         minSdk 23
-        targetSdk 33
+        targetSdk 36
         versionCode 1
         versionName '0.93'
 
 
         dataBinding{
             enabled true
+        }
+
+        buildFeatures {
+            buildConfig = true
         }
 
         externalNativeBuild {
